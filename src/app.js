@@ -16,10 +16,8 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-
 //Get user by email
 app.get("/user", async (req, res) => {
-
   const email = req.body.email;
   try {
     const user = await User.find({ email: email });
@@ -60,18 +58,29 @@ app.delete("/user", async (req, res) => {
 
 //update data of user
 
-app.patch("/user", async (req, res) => {
-  const email = req.body.email;
-  const data = req.body.data;
+app.patch("/user/:userId", async (req, res) => {
+  const id = req.params?.userId;
+  const data = req.body;
   try {
-    const user = await User.findOneAndUpdate({ email: email }, data, { returnDocument: "after" });
+    const ALLOWED_UPDATES = ["lastName", "age", "gender", "skills", "about"];
+    const isValidUpdates = Object.keys(data).every((update) => ALLOWED_UPDATES.includes(update));
+    if (!isValidUpdates) {
+      throw new Error("Invalid updates");
+    }
+    if(data.skills.length > 5){
+      throw new Error("Skills cannot be more than 5");
+    }
+    const user = await User.findByIdAndUpdate({_id:id}, data, {
+      returnDocument: "after",
+      runValidators: true,
+    });
     console.log("Updated user:", user);
     if (!user) {
       return res.status(404).send("User not found");
     }
     res.send("User updated successfully");
   } catch (error) {
-    res.status(400).send("Error updating user", error);
+    res.status(400).send( "Error updating user: " + error);
   }
 });
 
