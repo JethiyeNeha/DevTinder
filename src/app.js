@@ -29,11 +29,29 @@ app.post("/signup", async (req, res) => {
 
     await newUser.save();
     res.send("User created successfully");
-    
+
   } catch (error) {
     res.status(400).send("Error creating user: " + error);
   }
 });
+
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const user = await User.findOne({ email: email });
+    if (!user) {
+       throw new Error("Invalid credentials");
+    }
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new Error("Invalid credentials");
+    }
+    res.send("Login successful");
+  } catch (error) {
+    res.status(400).send("Error logging in: " + error);
+  }
+});
+
 
 //Get user by email
 app.get("/user", async (req, res) => {
