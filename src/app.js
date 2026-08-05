@@ -1,16 +1,35 @@
 const express = require("express");
 const connectDB = require("./config/database");
 const User = require("./models/user");
+const { validateSignupData } = require("./utils/validation");
+const bcrypt = require("bcrypt");
 const app = express();
 const port = 7777;
 
 app.use(express.json());
 
 app.post("/signup", async (req, res) => {
-  const newUser = new User(req.body);
   try {
+
+    //Validate the data
+    validateSignupData(req);
+
+    //Encrypt the password
+    const { firstName, lastName, email, password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    req.body.password = hashedPassword;
+
+    //Creating a new instance of the User model and saving it to the database
+    const newUser = new User({
+      firstName,
+      lastName,
+      email,
+      password: hashedPassword,
+    });
+
     await newUser.save();
     res.send("User created successfully");
+    
   } catch (error) {
     res.status(400).send("Error creating user: " + error);
   }
@@ -63,14 +82,16 @@ app.patch("/user/:userId", async (req, res) => {
   const data = req.body;
   try {
     const ALLOWED_UPDATES = ["lastName", "age", "gender", "skills", "about"];
-    const isValidUpdates = Object.keys(data).every((update) => ALLOWED_UPDATES.includes(update));
+    const isValidUpdates = Object.keys(data).every((update) =>
+      ALLOWED_UPDATES.includes(update),
+    );
     if (!isValidUpdates) {
       throw new Error("Invalid updates");
     }
-    if(data.skills.length > 5){
+    if (data.skills.length > 5) {
       throw new Error("Skills cannot be more than 5");
     }
-    const user = await User.findByIdAndUpdate({_id:id}, data, {
+    const user = await User.findByIdAndUpdate({ _id: id }, data, {
       returnDocument: "after",
       runValidators: true,
     });
@@ -80,7 +101,7 @@ app.patch("/user/:userId", async (req, res) => {
     }
     res.send("User updated successfully");
   } catch (error) {
-    res.status(400).send( "Error updating user: " + error);
+    res.status(400).send("Error updating user: " + error);
   }
 });
 
