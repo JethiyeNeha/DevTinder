@@ -2,15 +2,19 @@ const express = require("express");
 const connectDB = require("./config/database");
 const User = require("./models/user");
 const { validateSignupData } = require("./utils/validation");
+const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const app = express();
 const port = 7777;
+const userAuth = require("./middlewares/userAuth");
+
+const cookieParser = require("cookie-parser");
+app.use(cookieParser());
 
 app.use(express.json());
 
 app.post("/signup", async (req, res) => {
   try {
-
     //Validate the data
     validateSignupData(req);
 
@@ -29,29 +33,65 @@ app.post("/signup", async (req, res) => {
 
     await newUser.save();
     res.send("User created successfully");
-
   } catch (error) {
     res.status(400).send("Error creating user: " + error);
   }
 });
 
-app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+app.get("/profile", userAuth, async (req, res) => {
+
   try {
+    const user = req.user;
+    res.send(user);
+  } catch (error) {
+    res.status(400).send("Error fetching profile: " + error);
+  }
+});
+
+app.post("/sendConnectionRequest", userAuth, async (req, res) => {
+  try {
+    // const { targetUserId } = req.body;
+    const user = req.user;
+
+    // // Check if the target user exists
+    // const targetUser = await User.findById(targetUserId);
+    // if (!targetUser) {
+    //   return res.status(404).send("Target user not found");
+    // }
+
+    // Add the connection request to the target user's connectionRequests array
+    // targetUser.connectionRequests.push(user._id);
+    // await targetUser.save();
+
+    res.send(user.firstName + " sent the request successfully");
+  } catch (error) {
+    res.status(400).send("Error sending connection request: " + error);
+  }
+});
+
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
     const user = await User.findOne({ email: email });
     if (!user) {
-       throw new Error("Invalid credentials");
+      throw new Error("Invalid credentials");
     }
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await user.validatePassword(password);
     if (!isPasswordValid) {
       throw new Error("Invalid credentials");
     }
+    //Create JWT
+    const token = await user.getJWT();
+
+    //Add token to the cookie and send response
+    console.log("Token:", token);
+
+    res.cookie("token", token, {expires: new Date(Date.now() + 3600000), httpOnly: true });
     res.send("Login successful");
   } catch (error) {
     res.status(400).send("Error logging in: " + error);
   }
 });
-
 
 //Get user by email
 app.get("/user", async (req, res) => {
